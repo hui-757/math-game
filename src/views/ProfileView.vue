@@ -80,13 +80,13 @@ const totalTime = computed(() => {
 function logout() {
   authStore.logout()
   progressStore.records = []
-  localStorage.removeItem('progress_records')
+  localStorage.removeItem('math-game-progress')
 }
 
 function clearLocal() {
   if (confirm('确定清空所有本地记录？')) {
     progressStore.records = []
-    localStorage.removeItem('progress_records')
+    localStorage.removeItem('math-game-progress')
   }
 }
 

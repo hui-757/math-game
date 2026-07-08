@@ -17,7 +17,12 @@
 
     <div class="bottom-actions">
       <button class="btn" @click="$router.push('/profile')">个人中心</button>
-      <button class="btn" @click="$router.push('/join')">登录 / 加入班级</button>
+      <template v-if="authStore.isStudent">
+        <span class="student-name">👋 {{ authStore.student.nickname }}</span>
+      </template>
+      <template v-else>
+        <button class="btn" @click="$router.push('/join')">登录 / 加入班级</button>
+      </template>
       <button class="btn" @click="$router.push('/teacher')">教师登录</button>
     </div>
   </div>
@@ -25,7 +30,11 @@
 
 <script setup>
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth.js'
+
 const router = useRouter()
+const authStore = useAuthStore()
+authStore.loadFromStorage()
 
 function selectGrade(grade) {
   router.push(`/semester/${grade}`)
@@ -85,5 +94,11 @@ h1 {
   background: #f0f0f0;
   cursor: pointer;
   font-size: 14px;
+}
+.student-name {
+  padding: 10px 20px;
+  color: #409eff;
+  font-size: 14px;
+  font-weight: bold;
 }
 </style>

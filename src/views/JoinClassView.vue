@@ -16,8 +16,9 @@
     </div>
 
     <div class="success" v-else>
-      <p>登录成功！</p>
+      <p>{{ isNewRegister ? '注册成功！' : '欢迎回来！' }}</p>
       <p>班级：{{ className }}</p>
+      <p v-if="isNewRegister" class="tip">你的信息已保存，下次直接用相同信息登录即可。</p>
       <button class="btn btn-primary" @click="$router.push('/select')">去闯关</button>
     </div>
   </div>
@@ -40,6 +41,7 @@ const studentName = ref('')
 const error = ref('')
 const joined = ref(false)
 const className = ref('')
+const isNewRegister = ref(false)
 
 const canSubmit = computed(() => {
   return classCode.value.trim().length >= 4 && studentNumber.value.trim() && studentName.value.trim()
@@ -66,6 +68,7 @@ async function join() {
         })
         await syncProgress(existing.id)
         className.value = cls.name
+        isNewRegister.value = false
         joined.value = true
         return
       }
@@ -83,6 +86,7 @@ async function join() {
     })
     await syncProgress(newStudent.id)
     className.value = cls.name
+    isNewRegister.value = true
     joined.value = true
   } catch (e) {
     error.value = '加入失败：' + (e.message || '未知错误')
@@ -170,5 +174,10 @@ input {
 .success p {
   font-size: 18px;
   margin-bottom: 8px;
+}
+.success .tip {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 16px;
 }
 </style>
