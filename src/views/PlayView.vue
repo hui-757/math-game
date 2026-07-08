@@ -132,20 +132,27 @@ async function submitAll() {
   const total = questions.value.length
   let correct = 0
   const mistakes = []
+  const userAnswers = {} // 格式: { "0_b1": "5", "1_b2": "3" }
 
   questions.value.forEach((q, i) => {
     const content = typeof q.content === 'string' ? JSON.parse(q.content) : q.content
     let qCorrect = true
+    // 构建完整的题目文本
+    const questionText = content.lines?.map(line =>
+      line.map(p => p.type === 'text' ? p.text : '___').join('')
+    ).join(' ')
 
     content.lines?.forEach(line => {
       line.forEach(part => {
         if (part.type === 'blank') {
           const ans = (allAnswers.value[i]?.[part.id] || '').trim()
           const ok = ans === String(part.answer)
+          userAnswers[`${i}_${part.id}`] = ans || '(未答)'
           if (!ok) {
             qCorrect = false
             mistakes.push({
-              question: q.content?.lines?.[0]?.map(p => p.text || '___').join('') || '题目',
+              question_id: q.id,
+              question_text: questionText || '题目',
               user_answer: ans || '(未答)',
               correct_answer: part.answer
             })
@@ -163,14 +170,23 @@ async function submitAll() {
     correct_count: correct,
     total_count: total,
     time_seconds: timeSeconds,
-    mistakes: mistakes.length,
+    mistakes: mistakes, // 存储完整错题数组
+    user_answers: userAnswers,
     timestamp: Date.now()
   }
   progressStore.addRecord(record)
 
-  if (authStore.student) {
+  if (authStore.isLoggedIn) {
     try {
-      await submitProgress({ student_id: authStore.student.id, ...record })
+      await submitProgress({
+        student_id: authStore.user.id,
+        level_id: props.levelId,
+        correct_count: correct,
+        total_count: total,
+        time_seconds: timeSeconds,
+        mistakes: mistakes,
+        user_answers: userAnswers
+      })
     } catch (e) { console.warn('同步失败', e) }
   }
 

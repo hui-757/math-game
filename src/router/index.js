@@ -23,7 +23,8 @@ const routes = [
   { path: '/profile', name: 'profile', component: ProfileView },
   { path: '/auth', name: 'auth', component: AuthView },
   { path: '/verify', name: 'verify', component: StudentVerifyView },
-  { path: '/admin', name: 'admin', component: AdminView }
+  { path: '/admin', name: 'admin', component: AdminView },
+  { path: '/mistakes', name: 'mistakes', component: () => import('../views/MistakesView.vue') }
 ]
 
 export default createRouter({

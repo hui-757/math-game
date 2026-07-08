@@ -43,12 +43,18 @@
           <div class="stat-box">正确率: {{ avgScore }}%</div>
           <div class="stat-box">总用时: {{ totalTime }}分</div>
         </div>
+
+        <div class="actions">
+          <button class="btn btn-primary" @click="$router.push('/select')">去闯关</button>
+          <button class="btn" @click="$router.push('/mistakes')">📖 错题本</button>
+          <button class="btn" @click="clearLocal">清空本地记录</button>
+        </div>
       </template>
 
       <!-- 教师专属 -->
       <template v-if="authStore.isTeacher">
         <div class="actions">
-          <button class="btn btn-primary" @click="$router.push('/teacher')">教师中心</button>
+          <button class="btn btn-primary" @click="$router.push('/teacher')">班级管理</button>
         </div>
       </template>
 
@@ -73,11 +79,6 @@
           <span>{{ r.correct_count }}/{{ r.total_count }}</span>
           <span>{{ formatDate(r.timestamp) }}</span>
         </div>
-      </div>
-
-      <div class="actions" v-if="authStore.isStudent">
-        <button class="btn btn-primary" @click="$router.push('/select')">去闯关</button>
-        <button class="btn" @click="clearLocal">清空本地记录</button>
       </div>
     </div>
   </div>
