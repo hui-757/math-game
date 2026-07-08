@@ -1,106 +1,102 @@
 <template>
   <div class="play-page">
-    <!-- 顶部栏 -->
     <div class="play-header">
-      <button class="btn-icon" @click="quit">←</button>
-      <div class="progress-bar">
-        <div class="progress-fill" :style="{width: progressPct + '%'}"></div>
-      </div>
-      <div class="timer">⏱️ {{ formatTime(timeLeft) }}</div>
+      <button class="btn btn-small" @click="quit">返回</button>
+      <span>{{ currentIndex + 1 }} / {{ questions.length }}</span>
+      <span>用时 {{ formatTime }}</span>
     </div>
 
-    <!-- 加载/错误 -->
-    <div class="loading" v-if="loading">
-      <div class="spinner"></div>
-      <p>加载题目中...</p>
-    </div>
+    <div class="loading" v-if="loading">加载题目中...</div>
     <div class="error" v-else-if="error">
-      <p>⚠️ {{ error }}</p>
-      <button class="btn btn-primary" @click="quit">返回</button>
+      {{ error }}
+      <button class="btn" @click="quit">返回</button>
     </div>
 
-    <!-- 答题区 -->
-    <div class="question-area" v-else-if="question">
-      <!-- 题号 -->
-      <div class="q-index">第 {{ currentIndex + 1 }} / {{ questions.length }} 题</div>
-      
-      <!-- 题目文本 -->
-      <div class="q-text">{{ question.text }}</div>
-
-      <!-- 填空区 -->
-      <div class="blanks-area">
-        <template v-for="blank in question.blanks" :key="blank.id">
-          <span class="blank-label">{{ blank.label }}:</span>
-          <input
-            type="text"
-            class="blank-input"
-            :placeholder="blank.hint || '输入答案'"
-            v-model="allAnswers[currentIndex][blank.id]"
-          />
-        </template>
+    <div class="question-card" v-else-if="currentQuestion">
+      <div class="q-lines">
+        <div v-for="(line, li) in parsedContent.lines" :key="li" class="q-line">
+          <template v-for="(part, pi) in line" :key="pi">
+            <span v-if="part.type === 'text'">{{ part.text }}</span>
+            <input
+              v-else
+              type="text"
+              inputmode="numeric"
+              class="blank-input"
+              :value="allAnswers[currentIndex]?.[part.id] || ''"
+              @input="updateAnswer(part.id, $event.target.value)"
+              maxlength="8"
+            />
+          </template>
+        </div>
       </div>
 
-      <!-- 导航按钮 -->
-      <div class="nav-buttons">
-        <button class="btn btn-nav" :disabled="currentIndex === 0" @click="prev">上一题</button>
-        <button class="btn btn-nav" :disabled="currentIndex === questions.length - 1" @click="next">下一题</button>
+      <div class="actions">
+        <button class="btn" @click="prev" v-if="currentIndex > 0">上一题</button>
+        <button class="btn btn-primary" @click="next" v-if="currentIndex < questions.length - 1">下一题</button>
+        <button class="btn btn-primary" @click="submitAll" v-else>提交闯关</button>
       </div>
-
-      <!-- 提交按钮 -->
-      <button class="btn btn-submit" @click="submitAll" v-if="currentIndex === questions.length - 1">
-        ✅ 提交答案
-      </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/game.js'
 import { useProgressStore } from '../stores/progress.js'
 import { useAuthStore } from '../stores/auth.js'
-import { fetchQuestions } from '../lib/api.js'
+import { fetchQuestions, submitProgress } from '../lib/api.js'
 
 const props = defineProps(['levelId'])
-const route = useRoute()
 const router = useRouter()
 const gameStore = useGameStore()
 const progressStore = useProgressStore()
 const authStore = useAuthStore()
 
+const questions = ref([])
+const allAnswers = ref([])
+const timer = ref(0)
 const loading = ref(true)
 const error = ref('')
-const questions = ref([])
-const currentIndex = ref(0)
-const allAnswers = ref([])
-const timeLeft = ref(300)
-const timer = ref(null)
-const startTime = ref(0)
+let timerInterval = null
+let startTime = 0
 
-const question = computed(() => questions.value[currentIndex.value])
-const progressPct = computed(() => ((currentIndex.value + 1) / questions.value.length) * 100)
+const currentIndex = ref(0)
+const currentQuestion = computed(() => questions.value[currentIndex.value])
+
+const parsedContent = computed(() => {
+  const q = currentQuestion.value
+  if (!q || !q.content) return { lines: [] }
+  if (typeof q.content === 'string') {
+    try { return JSON.parse(q.content) } catch { return { lines: [[{type:'text', text: q.content}]] } }
+  }
+  return q.content
+})
+
+const formatTime = computed(() => {
+  const m = Math.floor(timer.value / 60)
+  const s = timer.value % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
+})
 
 onMounted(async () => {
   try {
-    const [g, s, u, l] = props.levelId.split('-')
-    const all = await fetchQuestions(Number(g), Number(s))
-    questions.value = all.filter(q => q.unit === Number(u) && q.level === Number(l))
-    
+    authStore.loadFromStorage()
+    const [grade, semester, unit, level] = props.levelId.split('-').map(Number)
+
+    const all = await fetchQuestions(grade, semester)
+    questions.value = all.filter(q => q.unit === unit && q.level === level)
+    allAnswers.value = new Array(questions.value.length).fill(null).map(() => ({}))
+
     if (questions.value.length === 0) {
       error.value = '该关卡暂无题目'
       loading.value = false
       return
     }
-    
-    allAnswers.value = questions.value.map(() => ({}))
-    startTime.value = Date.now()
+
+    startTime = Date.now()
     loading.value = false
-    
-    timer.value = setInterval(() => {
-      timeLeft.value--
-      if (timeLeft.value <= 0) submitAll()
-    }, 1000)
+    timerInterval = setInterval(() => { timer.value++ }, 1000)
   } catch (e) {
     error.value = '加载失败: ' + (e.message || '未知错误')
     loading.value = false
@@ -108,8 +104,13 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  if (timer.value) clearInterval(timer.value)
+  if (timerInterval) clearInterval(timerInterval)
 })
+
+function updateAnswer(id, value) {
+  if (!allAnswers.value[currentIndex.value]) allAnswers.value[currentIndex.value] = {}
+  allAnswers.value[currentIndex.value][id] = value
+}
 
 function prev() {
   if (currentIndex.value > 0) currentIndex.value--
@@ -119,44 +120,44 @@ function next() {
 }
 function quit() {
   if (confirm('确定要退出吗？进度将不会保存。')) {
-    if (timer.value) clearInterval(timer.value)
-    router.push('/')
+    if (timerInterval) clearInterval(timerInterval)
+    const [grade, semester] = props.levelId.split('-')
+    router.push(`/unit/${grade}/${semester}`)
   }
-}
-function formatTime(s) {
-  const m = Math.floor(s / 60)
-  const sec = s % 60
-  return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
 async function submitAll() {
-  if (timer.value) clearInterval(timer.value)
-  
+  if (timerInterval) clearInterval(timerInterval)
+
   const total = questions.value.length
   let correct = 0
   const mistakes = []
-  
+
   questions.value.forEach((q, i) => {
+    const content = typeof q.content === 'string' ? JSON.parse(q.content) : q.content
     let qCorrect = true
-    q.blanks.forEach(b => {
-      const ans = (allAnswers.value[i][b.id] || '').trim()
-      const ok = ans === String(b.answer)
-      if (!ok) {
-        qCorrect = false
-        mistakes.push({
-          question: q.text,
-          blank_label: b.label,
-          user_answer: ans || '(未答)',
-          correct_answer: b.answer
-        })
-      }
+
+    content.lines?.forEach(line => {
+      line.forEach(part => {
+        if (part.type === 'blank') {
+          const ans = (allAnswers.value[i]?.[part.id] || '').trim()
+          const ok = ans === String(part.answer)
+          if (!ok) {
+            qCorrect = false
+            mistakes.push({
+              question: q.content?.lines?.[0]?.map(p => p.text || '___').join('') || '题目',
+              user_answer: ans || '(未答)',
+              correct_answer: part.answer
+            })
+          }
+        }
+      })
     })
     if (qCorrect) correct++
   })
-  
-  const timeSeconds = Math.round((Date.now() - startTime.value) / 1000)
-  
-  // 保存进度
+
+  const timeSeconds = Math.round((Date.now() - startTime) / 1000)
+
   const record = {
     level_id: props.levelId,
     correct_count: correct,
@@ -166,159 +167,90 @@ async function submitAll() {
     timestamp: Date.now()
   }
   progressStore.addRecord(record)
+
   if (authStore.student) {
     try {
-      await import('../lib/api.js').then(m => m.saveProgress(authStore.student.id, record))
-    } catch (e) { /* 静默失败 */ }
+      await submitProgress({ student_id: authStore.student.id, ...record })
+    } catch (e) { console.warn('同步失败', e) }
   }
-  
-  // 存结果到store供ResultView用
+
   gameStore.setResult({
     levelId: props.levelId,
     correct, total, time: timeSeconds, mistakes,
-    score: Math.round((correct / total) * 100)
+    score: total > 0 ? Math.round((correct / total) * 100) : 0
   })
-  
+
   router.push({ name: 'result' })
 }
 </script>
 
 <style scoped>
 .play-page {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 16px;
-}
-.play-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-.btn-icon {
-  width: 40px; height: 40px;
-  border-radius: 50%;
-  border: none;
-  background: white;
-  font-size: 20px;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-}
-.progress-bar {
-  flex: 1; height: 8px;
-  background: rgba(255,255,255,0.3);
-  border-radius: 4px; overflow: hidden;
-}
-.progress-fill {
-  height: 100%;
-  background: #52c41a;
-  border-radius: 4px;
-  transition: width 0.3s;
-}
-.timer {
-  color: white;
-  font-weight: bold;
-  font-size: 16px;
-  min-width: 60px;
-  text-align: center;
-}
-
-.question-area {
-  background: white;
-  border-radius: 16px;
-  padding: 24px;
   max-width: 600px;
   margin: 0 auto;
 }
-.q-index {
-  text-align: center;
-  color: #666;
-  margin-bottom: 12px;
-  font-size: 14px;
-}
-.q-text {
-  font-size: 20px;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 24px;
-  text-align: center;
-}
-.blanks-area {
+.play-header {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
+  margin-bottom: 16px;
+  padding: 8px 0;
+}
+.question-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  background: #fff;
+}
+.q-lines {
   margin-bottom: 24px;
 }
-.blank-label {
-  font-size: 16px;
-  font-weight: bold;
-  color: #333;
+.q-line {
+  font-size: 20px;
+  line-height: 2.5;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 .blank-input {
-  width: 120px;
-  padding: 12px;
-  font-size: 20px;
+  width: 80px;
+  padding: 6px 8px;
+  font-size: 18px;
   text-align: center;
-  border: 2px solid #ddd;
-  border-radius: 8px;
+  border: 2px solid #ccc;
+  border-radius: 4px;
   outline: none;
-  transition: border-color 0.2s;
 }
 .blank-input:focus {
   border-color: #409eff;
 }
-
-.nav-buttons {
+.actions {
   display: flex;
-  justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  justify-content: center;
 }
 .btn {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
+  padding: 10px 20px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
   cursor: pointer;
-  transition: opacity 0.2s;
+  font-size: 14px;
 }
-.btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+.btn-primary {
+  background: #409eff;
+  color: #fff;
+  border-color: #409eff;
 }
-.btn-nav {
-  flex: 1;
-  background: #f0f0f0;
-  color: #333;
+.btn-small {
+  padding: 6px 12px;
+  font-size: 12px;
 }
-.btn-nav:hover:not(:disabled) {
-  background: #e0e0e0;
-}
-.btn-submit {
-  width: 100%;
-  background: #52c41a;
-  color: white;
-  font-size: 18px;
-  padding: 16px;
-}
-.btn-submit:hover {
-  background: #389e0d;
-}
-
 .loading, .error {
   text-align: center;
-  padding: 60px 20px;
-  color: white;
+  padding: 40px;
+  color: #666;
 }
-.spinner {
-  width: 40px; height: 40px;
-  border: 4px solid rgba(255,255,255,0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 16px;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
 </style>

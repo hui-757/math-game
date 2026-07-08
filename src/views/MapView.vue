@@ -1,46 +1,36 @@
 <template>
   <div class="map-page">
     <div class="map-header">
-      <button class="btn-back" @click="$router.push('/')">← 返回</button>
+      <button class="btn" @click="$router.push('/')">返回</button>
       <h2>{{ grade }}年级{{ semester === 1 ? '上' : '下' }}册</h2>
-      <div class="placeholder-avatar">🧑‍🎓</div>
+      <span></span>
     </div>
     
-    <div class="loading" v-if="loading">
-      <div class="spinner"></div>
-      <p>加载关卡中...</p>
-    </div>
+    <div class="loading" v-if="loading">加载关卡中...</div>
     
     <div class="error" v-else-if="error">
-      <p>⚠️ {{ error }}</p>
-      <button class="btn btn-primary" @click="$router.push('/')">返回首页</button>
+      {{ error }}
+      <button class="btn" @click="$router.push('/')">返回首页</button>
     </div>
     
-    <div class="map-road" v-else-if="levels.length > 0">
-      <!-- 路线 -->
-      <div class="road-line"></div>
-      
-      <!-- 关卡点 -->
+    <div class="level-list" v-else-if="levels.length > 0">
       <div
-        v-for="(level, i) in levels"
+        v-for="level in levels"
         :key="level.id"
-        class="level-node"
+        class="level-item"
         :class="getNodeStatus(level)"
-        :style="getNodeStyle(i)"
         @click="goToLevel(level)"
       >
-        <div class="node-circle">
-          <span v-if="getNodeStatus(level) === 'completed'">⭐</span>
-          <span v-else-if="getNodeStatus(level) === 'unlocked'">▶️</span>
-          <span v-else>🔒</span>
-        </div>
-        <div class="node-label">{{ level.name }}</div>
+        <span class="level-icon">
+          {{ getNodeStatus(level) === 'completed' ? '★' : getNodeStatus(level) === 'unlocked' ? '>' : 'x' }}
+        </span>
+        <span class="level-name">{{ level.name }}</span>
       </div>
     </div>
     
     <div class="empty" v-else>
-      <p>📚 该年级暂无题目</p>
-      <button class="btn btn-primary" @click="$router.push('/')">返回首页</button>
+      <p>该年级暂无题目</p>
+      <button class="btn" @click="$router.push('/')">返回首页</button>
     </div>
   </div>
 </template>
@@ -91,20 +81,6 @@ onMounted(async () => {
   }
 })
 
-function getNodeStyle(i) {
-  const positions = [
-    { left: '10%', top: '80%' },
-    { left: '30%', top: '60%' },
-    { left: '50%', top: '70%' },
-    { left: '70%', top: '40%' },
-    { left: '85%', top: '20%' },
-    { left: '55%', top: '30%' },
-    { left: '35%', top: '45%' },
-    { left: '60%', top: '55%' }
-  ]
-  return positions[i] || { left: '50%', top: '50%' }
-}
-
 function getNodeStatus(level) {
   if (progressStore.isLevelCompleted(level.id)) return 'completed'
   const prevLevel = levels.value[level.index - 1]
@@ -124,7 +100,6 @@ function goToLevel(level) {
 .map-page {
   padding: 20px;
   min-height: 100vh;
-  background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 50%, #90EE90 100%);
 }
 .map-header {
   display: flex;
@@ -136,117 +111,57 @@ function goToLevel(level) {
   margin: 0;
   font-size: 20px;
 }
-.btn-back {
-  background: rgba(255,255,255,0.8);
-  border: none;
+.btn {
   padding: 8px 16px;
-  border-radius: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #f0f0f0;
   cursor: pointer;
   font-size: 14px;
 }
-.placeholder-avatar {
-  font-size: 32px;
-  width: 48px;
-  height: 48px;
-  background: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 
-.map-road {
-  position: relative;
-  width: 100%;
-  height: 500px;
-  background: rgba(255,255,255,0.3);
-  border-radius: 20px;
-  overflow: hidden;
-}
-.road-line {
-  position: absolute;
-  left: 10%;
-  top: 80%;
-  width: 2px;
-  height: 2px;
-  /* 占位符：后续可替换为SVG路线 */
-}
-
-.level-node {
-  position: absolute;
+.level-list {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  cursor: pointer;
-  transition: transform 0.2s;
+  gap: 12px;
+  max-width: 400px;
+  margin: 0 auto;
 }
-.level-node:hover { transform: scale(1.1); }
-.level-node.locked { opacity: 0.5; cursor: not-allowed; }
-
-.node-circle {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
+.level-item {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  border: 4px solid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  background: white;
 }
-.level-node.completed .node-circle {
-  background: #52c41a;
-  border-color: #389e0d;
+.level-item.locked {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
-.level-node.unlocked .node-circle {
-  background: #faad14;
-  border-color: #d48806;
-  animation: pulse 1.5s infinite;
+.level-item.completed {
+  background: #f6ffed;
+  border-color: #52c41a;
 }
-.level-node.locked .node-circle {
-  background: #d9d9d9;
-  border-color: #bfbfbf;
+.level-item.unlocked {
+  background: #fffbe6;
+  border-color: #faad14;
 }
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+.level-icon {
+  font-size: 20px;
+  width: 32px;
+  text-align: center;
 }
-
-.node-label {
-  margin-top: 8px;
-  font-size: 14px;
+.level-name {
+  font-size: 16px;
   font-weight: bold;
-  color: #333;
-  background: rgba(255,255,255,0.8);
-  padding: 2px 8px;
-  border-radius: 4px;
 }
 
 .loading, .error, .empty {
   text-align: center;
-  padding: 60px 20px;
-}
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #ddd;
-  border-top-color: #409eff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 16px;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.btn {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  cursor: pointer;
-  margin-top: 16px;
-}
-.btn-primary {
-  background: #409eff;
-  color: white;
+  padding: 40px 20px;
+  color: #666;
 }
 </style>
