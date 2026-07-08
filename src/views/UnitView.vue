@@ -96,7 +96,7 @@ function getStatusClass(unit) {
 
 function play(unit) {
   if (!hasQuestions(unit)) return
-  router.push(`/play/${getLevelId(unit)}`)
+  router.push(`/map/${props.grade}/${props.semester}/${unit}`)
 }
 </script>
 

@@ -1,18 +1,18 @@
 <template>
   <div class="map-page">
     <div class="map-header">
-      <button class="btn" @click="$router.push('/')">返回</button>
-      <h2>{{ grade }}年级{{ semester === 1 ? '上' : '下' }}册</h2>
+      <button class="btn" @click="$router.push(`/unit/${grade}/${semester}`)">返回</button>
+      <h2>{{ grade }}年级{{ semester === 1 ? '上' : '下' }}册 · 第{{ unit }}单元</h2>
       <span></span>
     </div>
-    
+
     <div class="loading" v-if="loading">加载关卡中...</div>
-    
+
     <div class="error" v-else-if="error">
       {{ error }}
-      <button class="btn" @click="$router.push('/')">返回首页</button>
+      <button class="btn" @click="$router.push(`/unit/${grade}/${semester}`)">返回单元</button>
     </div>
-    
+
     <div class="level-list" v-else-if="levels.length > 0">
       <div
         v-for="level in levels"
@@ -27,10 +27,10 @@
         <span class="level-name">{{ level.name }}</span>
       </div>
     </div>
-    
+
     <div class="empty" v-else>
-      <p>该年级暂无题目</p>
-      <button class="btn" @click="$router.push('/')">返回首页</button>
+      <p>该单元暂无题目</p>
+      <button class="btn" @click="$router.push(`/unit/${grade}/${semester}`)">返回单元</button>
     </div>
   </div>
 </template>
@@ -42,7 +42,7 @@ import { useProgressStore } from '../stores/progress.js'
 import { useAuthStore } from '../stores/auth.js'
 import { fetchQuestions } from '../lib/api.js'
 
-const props = defineProps(['grade', 'semester'])
+const props = defineProps(['grade', 'semester', 'unit'])
 const router = useRouter()
 const progressStore = useProgressStore()
 const authStore = useAuthStore()
@@ -59,9 +59,11 @@ onMounted(async () => {
       await progressStore.load(authStore.student.id)
     }
     const all = await fetchQuestions(Number(props.grade), Number(props.semester))
-    
+
+    // 只过滤当前 unit 的关卡
+    const unitQuestions = all.filter(q => q.unit === Number(props.unit))
     const levelMap = new Map()
-    all.forEach(q => {
+    unitQuestions.forEach(q => {
       const key = `${q.unit}-${q.level}`
       if (!levelMap.has(key)) {
         levelMap.set(key, {
@@ -97,6 +99,9 @@ function goToLevel(level) {
 </script>
 
 <style scoped>
+/* ===== 交给其他人做的地图页面 ===== */
+/* 目前只是一个垂直列表占位，需要替换为真正的地图/路线/关卡节点设计 */
+
 .map-page {
   padding: 20px;
   min-height: 100vh;
@@ -109,7 +114,7 @@ function goToLevel(level) {
 }
 .map-header h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
 }
 .btn {
   padding: 8px 16px;
