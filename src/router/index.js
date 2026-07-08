@@ -6,6 +6,8 @@ import MapView from '../views/MapView.vue'
 import PlayView from '../views/PlayView.vue'
 import ResultView from '../views/ResultView.vue'
 import TeacherView from '../views/TeacherView.vue'
+import ProfileView from '../views/ProfileView.vue'
+import JoinClassView from '../views/JoinClassView.vue'
 
 const routes = [
   { path: '/', redirect: '/select' },
@@ -15,7 +17,9 @@ const routes = [
   { path: '/map/:grade/:semester/:unit', name: 'map', component: MapView, props: true },
   { path: '/play/:levelId', name: 'play', component: PlayView, props: true },
   { path: '/result', name: 'result', component: ResultView },
-  { path: '/teacher', name: 'teacher', component: TeacherView }
+  { path: '/teacher', name: 'teacher', component: TeacherView },
+  { path: '/profile', name: 'profile', component: ProfileView },
+  { path: '/join', name: 'join', component: JoinClassView }
 ]
 
 export default createRouter({

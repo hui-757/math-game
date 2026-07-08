@@ -1,9 +1,12 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 export const useAuthStore = defineStore('auth', () => {
-  const student = ref(null)
-  const classInfo = ref(null)
+  const student = ref(null)    // { id(uuid), student_number, nickname, class_id }
+  const classInfo = ref(null)   // { id, code, name } — 教师查看的班级
+
+  const isStudent = computed(() => !!student.value)
+  const isInClass = computed(() => !!student.value?.class_id)
 
   function setStudent(data) {
     student.value = data
@@ -29,5 +32,5 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('math-game-class')
   }
 
-  return { student, classInfo, setStudent, setClassInfo, loadFromStorage, logout }
+  return { student, classInfo, isStudent, isInClass, setStudent, setClassInfo, loadFromStorage, logout }
 })

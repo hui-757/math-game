@@ -34,55 +34,27 @@ export async function submitProgress(payload) {
   if (error) throw error
 }
 
-// ========== 教师统计接口 ==========
+// ========== 班级接口 ==========
 
-export async function fetchClassStats(classId) {
-  // 获取班级信息
-  const { data: classData } = await supabase
-    .from('classes')
-    .select('*')
-    .eq('id', classId)
-    .single()
-
-  // 获取学生列表
-  const { data: students } = await supabase
-    .from('students')
-    .select('*')
-    .eq('class_id', classId)
-
-  // 获取该班所有学生的进度
-  const studentIds = students?.map(s => s.id) || []
-  const { data: progressList } = await supabase
-    .from('progress')
-    .select('*')
-    .in('student_id', studentIds)
-
-  // 计算聚合统计
-  const totalStudents = students?.length || 0
-  const activeToday = students?.filter(s => {
-    const today = new Date().toISOString().split('T')[0]
-    return s.created_at?.startsWith(today)
-  }).length || 0
-
-  const avgAccuracy = progressList?.length
-    ? progressList.reduce((sum, p) => sum + (p.correct_count / p.total_count), 0) / progressList.length
-    : 0
-
-  return {
-    classId,
-    className: classData?.name || '未知班级',
-    totalStudents,
-    activeToday,
-    avgAccuracy: Math.round(avgAccuracy * 100) / 100,
-    studentList: students?.map(s => ({
-      id: s.id,
-      name: s.nickname,
-      completedLevels: progressList?.filter(p => p.student_id === s.id).length || 0
-    })) || []
+function generateClassCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  let code = ''
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length))
   }
+  return code
 }
 
-// ========== Auth 接口 ==========
+export async function createClass(name) {
+  const code = generateClassCode()
+  const { data, error } = await supabase
+    .from('classes')
+    .insert({ name, code })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
 
 export async function findClassByCode(code) {
   const { data, error } = await supabase
@@ -94,22 +66,88 @@ export async function findClassByCode(code) {
   return data
 }
 
-export async function createStudent(classId, nickname) {
+// ========== 学生接口 ==========
+
+export async function findStudentByNumber(classId, studentNumber) {
+  const { data } = await supabase
+    .from('students')
+    .select('*')
+    .eq('class_id', classId)
+    .eq('student_number', studentNumber)
+    .single()
+  return data
+}
+
+export async function createStudent(classId, studentNumber, nickname) {
   const { data, error } = await supabase
     .from('students')
-    .insert({ class_id: classId, nickname })
+    .insert({ class_id: classId, student_number: studentNumber, nickname })
     .select()
     .single()
   if (error) throw error
   return data
 }
 
-export async function findStudentByNickname(classId, nickname) {
-  const { data } = await supabase
+export async function fetchClassStudents(classId) {
+  const { data: students } = await supabase
     .from('students')
     .select('*')
     .eq('class_id', classId)
-    .eq('nickname', nickname)
+
+  const studentIds = students?.map(s => s.id) || []
+  const { data: progressList } = await supabase
+    .from('progress')
+    .select('*')
+    .in('student_id', studentIds)
+
+  return students?.map(s => {
+    const sProgress = progressList?.filter(p => p.student_id === s.id) || []
+    return {
+      ...s,
+      completedLevels: sProgress.length,
+      accuracy: sProgress.length
+        ? Math.round(sProgress.reduce((sum, p) => sum + (p.correct_count / p.total_count), 0) / sProgress.length * 100)
+        : 0,
+      totalTime: sProgress.reduce((sum, p) => sum + (p.time_seconds || 0), 0)
+    }
+  }) || []
+}
+
+// ========== 教师统计接口 ==========
+
+export async function fetchClassStats(classId) {
+  const { data: classData } = await supabase
+    .from('classes')
+    .select('*')
+    .eq('id', classId)
     .single()
-  return data
+
+  const { data: students } = await supabase
+    .from('students')
+    .select('*')
+    .eq('class_id', classId)
+
+  const studentIds = students?.map(s => s.id) || []
+  const { data: progressList } = await supabase
+    .from('progress')
+    .select('*')
+    .in('student_id', studentIds)
+
+  const totalStudents = students?.length || 0
+  const avgAccuracy = progressList?.length
+    ? progressList.reduce((sum, p) => sum + (p.correct_count / p.total_count), 0) / progressList.length
+    : 0
+
+  return {
+    classId,
+    className: classData?.name || '未知班级',
+    totalStudents,
+    avgAccuracy: Math.round(avgAccuracy * 100) / 100,
+    studentList: students?.map(s => ({
+      id: s.id,
+      studentNumber: s.student_number,
+      name: s.nickname,
+      completedLevels: progressList?.filter(p => p.student_id === s.id).length || 0
+    })) || []
+  }
 }

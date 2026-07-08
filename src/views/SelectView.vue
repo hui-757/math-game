@@ -16,7 +16,8 @@
     </div>
 
     <div class="bottom-actions">
-      <button class="btn" @click="$router.push('/teacher')">教师入口</button>
+      <button class="btn" @click="$router.push('/profile')">个人中心</button>
+      <button class="btn" @click="$router.push('/teacher')">教师登录</button>
     </div>
   </div>
 </template>
