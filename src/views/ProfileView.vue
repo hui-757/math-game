@@ -66,11 +66,6 @@
         </div>
       </template>
 
-      <!-- 通用：学生可以申请教师 -->
-      <div class="apply-teacher" v-if="authStore.isStudent">
-        <button class="btn" @click="$router.push('/auth')">申请教师认证</button>
-      </div>
-
       <div class="records" v-if="records.length > 0">
         <h3>最近记录</h3>
         <div class="record-item" v-for="(r, i) in records.slice(0, 10)" :key="i">
