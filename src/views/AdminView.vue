@@ -1,45 +1,54 @@
 <template>
   <div class="admin-page">
-    <div class="header">
-      <button class="btn" @click="$router.push('/select')">返回首页</button>
-      <h2>管理员后台</h2>
-      <span></span>
+    <!-- 权限检查 -->
+    <div v-if="!authStore.isAdmin" class="no-access">
+      <h2>⛔ 无权访问</h2>
+      <p>只有管理员可以查看此页面。</p>
+      <button class="btn btn-primary" @click="$router.push('/select')">返回首页</button>
     </div>
 
-    <!-- 平台数据 -->
-    <div class="stats-section">
-      <h3>📊 平台数据</h3>
-      <div class="stats-grid">
-        <div class="stat-card">学生数<br><strong>{{ stats.totalStudents }}</strong></div>
-        <div class="stat-card">教师数<br><strong>{{ stats.totalTeachers }}</strong></div>
-        <div class="stat-card">班级数<br><strong>{{ stats.totalClasses }}</strong></div>
-        <div class="stat-card">闯关记录<br><strong>{{ stats.totalProgress }}</strong></div>
-        <div class="stat-card">待审申请<br><strong>{{ stats.pendingApplications }}</strong></div>
+    <template v-else>
+      <div class="header">
+        <button class="btn" @click="$router.push('/select')">返回首页</button>
+        <h2>管理员后台</h2>
+        <span></span>
       </div>
-    </div>
 
-    <!-- 教师申请列表 -->
-    <div class="applications-section">
-      <h3>📝 教师申请</h3>
-      <div v-if="applications.length === 0" class="empty">暂无申请</div>
-      <div v-else class="app-list">
-        <div class="app-item" v-for="app in applications" :key="app.id">
-          <div class="app-info">
-            <span class="name">{{ app.students?.nickname || '未知' }}</span>
-            <span class="school">{{ app.school }}</span>
-            <span class="number">学号/工号：{{ app.students?.student_number || '-' }}</span>
-            <span class="time">{{ formatDate(app.created_at) }}</span>
-          </div>
-          <div class="app-status">
-            <span :class="['badge', app.status]">{{ statusText(app.status) }}</span>
-            <div class="actions" v-if="app.status === 'pending'">
-              <button class="btn btn-approve" @click="resolve(app.id, 'approved')">通过</button>
-              <button class="btn btn-reject" @click="resolve(app.id, 'rejected')">拒绝</button>
+      <!-- 平台数据 -->
+      <div class="stats-section">
+        <h3>📊 平台数据</h3>
+        <div class="stats-grid">
+          <div class="stat-card">学生数<br><strong>{{ stats.totalStudents }}</strong></div>
+          <div class="stat-card">教师数<br><strong>{{ stats.totalTeachers }}</strong></div>
+          <div class="stat-card">班级数<br><strong>{{ stats.totalClasses }}</strong></div>
+          <div class="stat-card">闯关记录<br><strong>{{ stats.totalProgress }}</strong></div>
+          <div class="stat-card">待审申请<br><strong>{{ stats.pendingApplications }}</strong></div>
+        </div>
+      </div>
+
+      <!-- 教师申请列表 -->
+      <div class="applications-section">
+        <h3>📝 教师申请</h3>
+        <div v-if="applications.length === 0" class="empty">暂无申请</div>
+        <div v-else class="app-list">
+          <div class="app-item" v-for="app in applications" :key="app.id">
+            <div class="app-info">
+              <span class="name">{{ app.students?.nickname || '未知' }}</span>
+              <span class="school">{{ app.school }}</span>
+              <span class="number">学号/工号：{{ app.students?.student_number || '-' }}</span>
+              <span class="time">{{ formatDate(app.created_at) }}</span>
+            </div>
+            <div class="app-status">
+              <span :class="['badge', app.status]">{{ statusText(app.status) }}</span>
+              <div class="actions" v-if="app.status === 'pending'">
+                <button class="btn btn-approve" @click="resolve(app.id, 'approved')">通过</button>
+                <button class="btn btn-reject" @click="resolve(app.id, 'rejected')">拒绝</button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>
 
