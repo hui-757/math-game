@@ -131,10 +131,13 @@ export async function resolveTeacherApplication(id, status, adminId) {
   // 如果批准，更新用户角色为 teacher
   if (status === 'approved') {
     const app = data
-    await supabase
+    const { error: updateError } = await supabase
       .from('students')
       .update({ role: 'teacher' })
       .eq('id', app.student_id)
+    if (updateError) {
+      throw new Error('申请已更新，但用户角色更新失败：' + updateError.message)
+    }
   }
 
   return data
