@@ -7,7 +7,9 @@ import PlayView from '../views/PlayView.vue'
 import ResultView from '../views/ResultView.vue'
 import TeacherView from '../views/TeacherView.vue'
 import ProfileView from '../views/ProfileView.vue'
-import JoinClassView from '../views/JoinClassView.vue'
+import AuthView from '../views/AuthView.vue'
+import StudentVerifyView from '../views/StudentVerifyView.vue'
+import AdminView from '../views/AdminView.vue'
 
 const routes = [
   { path: '/', redirect: '/select' },
@@ -19,7 +21,9 @@ const routes = [
   { path: '/result', name: 'result', component: ResultView },
   { path: '/teacher', name: 'teacher', component: TeacherView },
   { path: '/profile', name: 'profile', component: ProfileView },
-  { path: '/join', name: 'join', component: JoinClassView }
+  { path: '/auth', name: 'auth', component: AuthView },
+  { path: '/verify', name: 'verify', component: StudentVerifyView },
+  { path: '/admin', name: 'admin', component: AdminView }
 ]
 
 export default createRouter({

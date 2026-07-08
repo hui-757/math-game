@@ -69,7 +69,11 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useAuthStore } from '../stores/auth.js'
 import { createClass, findClassByCode, fetchClassStudents } from '../lib/api.js'
+
+const authStore = useAuthStore()
+authStore.loadFromStorage()
 
 const mode = ref('create')
 const className = ref('')
@@ -82,8 +86,12 @@ const students = ref([])
 const stats = ref({ totalStudents: 0, avgAccuracy: 0 })
 
 async function create() {
+  if (!authStore.isTeacher && !authStore.isAdmin) {
+    alert('只有教师可以创建班级')
+    return
+  }
   try {
-    const cls = await createClass(className.value.trim())
+    const cls = await createClass(className.value.trim(), authStore.user.id)
     createdClass.value = cls
     created.value = true
   } catch (e) {

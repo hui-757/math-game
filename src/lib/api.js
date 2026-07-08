@@ -34,6 +34,39 @@ export async function submitProgress(payload) {
   if (error) throw error
 }
 
+// ========== 用户接口（学生/教师/管理员通用） ==========
+
+export async function findUserByCredentials(studentNumber, school) {
+  const { data } = await supabase
+    .from('students')
+    .select('*')
+    .eq('student_number', studentNumber)
+    .eq('school', school)
+    .single()
+  return data
+}
+
+export async function createUser({ nickname, studentNumber, school, role = 'student' }) {
+  const { data, error } = await supabase
+    .from('students')
+    .insert({ nickname, student_number: studentNumber, school, role })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function updateUserClass(userId, classId) {
+  const { data, error } = await supabase
+    .from('students')
+    .update({ class_id: classId })
+    .eq('id', userId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
 // ========== 班级接口 ==========
 
 function generateClassCode() {
@@ -45,11 +78,11 @@ function generateClassCode() {
   return code
 }
 
-export async function createClass(name) {
+export async function createClass(name, teacherId) {
   const code = generateClassCode()
   const { data, error } = await supabase
     .from('classes')
-    .insert({ name, code })
+    .insert({ name, code, teacher_pin: teacherId })
     .select()
     .single()
   if (error) throw error
@@ -66,7 +99,59 @@ export async function findClassByCode(code) {
   return data
 }
 
-// ========== 学生接口 ==========
+// ========== 教师申请接口 ==========
+
+export async function submitTeacherApplication({ studentId, school }) {
+  const { data, error } = await supabase
+    .from('teacher_applications')
+    .insert({ student_id: studentId, school })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function fetchTeacherApplications() {
+  const { data } = await supabase
+    .from('teacher_applications')
+    .select('*, students!student_id(nickname, student_number)')
+    .order('created_at', { ascending: false })
+  return data || []
+}
+
+export async function resolveTeacherApplication(id, status, adminId) {
+  const { data, error } = await supabase
+    .from('teacher_applications')
+    .update({ status, resolved_at: new Date().toISOString(), resolved_by: adminId })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+
+  // 如果批准，更新用户角色为 teacher
+  if (status === 'approved') {
+    const app = data
+    await supabase
+      .from('students')
+      .update({ role: 'teacher' })
+      .eq('id', app.student_id)
+  }
+
+  return data
+}
+
+export async function fetchMyApplication(studentId) {
+  const { data } = await supabase
+    .from('teacher_applications')
+    .select('*')
+    .eq('student_id', studentId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+  return data
+}
+
+// ========== 学生/班级成员接口 ==========
 
 export async function findStudentByNumber(classId, studentNumber) {
   const { data } = await supabase
@@ -113,41 +198,37 @@ export async function fetchClassStudents(classId) {
   }) || []
 }
 
-// ========== 教师统计接口 ==========
+// ========== 管理员统计接口 ==========
 
-export async function fetchClassStats(classId) {
-  const { data: classData } = await supabase
-    .from('classes')
-    .select('*')
-    .eq('id', classId)
-    .single()
-
-  const { data: students } = await supabase
+export async function fetchPlatformStats() {
+  const { count: totalStudents } = await supabase
     .from('students')
-    .select('*')
-    .eq('class_id', classId)
+    .select('*', { count: 'exact', head: true })
+    .eq('role', 'student')
 
-  const studentIds = students?.map(s => s.id) || []
-  const { data: progressList } = await supabase
+  const { count: totalTeachers } = await supabase
+    .from('students')
+    .select('*', { count: 'exact', head: true })
+    .eq('role', 'teacher')
+
+  const { count: totalClasses } = await supabase
+    .from('classes')
+    .select('*', { count: 'exact', head: true })
+
+  const { count: totalProgress } = await supabase
     .from('progress')
-    .select('*')
-    .in('student_id', studentIds)
+    .select('*', { count: 'exact', head: true })
 
-  const totalStudents = students?.length || 0
-  const avgAccuracy = progressList?.length
-    ? progressList.reduce((sum, p) => sum + (p.correct_count / p.total_count), 0) / progressList.length
-    : 0
+  const { count: pendingApplications } = await supabase
+    .from('teacher_applications')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'pending')
 
   return {
-    classId,
-    className: classData?.name || '未知班级',
-    totalStudents,
-    avgAccuracy: Math.round(avgAccuracy * 100) / 100,
-    studentList: students?.map(s => ({
-      id: s.id,
-      studentNumber: s.student_number,
-      name: s.nickname,
-      completedLevels: progressList?.filter(p => p.student_id === s.id).length || 0
-    })) || []
+    totalStudents: totalStudents || 0,
+    totalTeachers: totalTeachers || 0,
+    totalClasses: totalClasses || 0,
+    totalProgress: totalProgress || 0,
+    pendingApplications: pendingApplications || 0
   }
 }

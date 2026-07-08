@@ -2,15 +2,20 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
 export const useAuthStore = defineStore('auth', () => {
-  const student = ref(null)    // { id(uuid), student_number, nickname, class_id }
-  const classInfo = ref(null)   // { id, code, name } — 教师查看的班级
+  // 通用用户对象：{ id, nickname, student_number, school, role, class_id }
+  const user = ref(null)
+  const classInfo = ref(null) // 教师查看的班级
 
-  const isStudent = computed(() => !!student.value)
-  const isInClass = computed(() => !!student.value?.class_id)
+  const isLoggedIn = computed(() => !!user.value)
+  const isStudent = computed(() => user.value?.role === 'student')
+  const isTeacher = computed(() => user.value?.role === 'teacher')
+  const isAdmin = computed(() => user.value?.role === 'admin')
+  const isInClass = computed(() => !!user.value?.class_id)
+  const isTeacherPending = computed(() => user.value?.role === 'teacher_pending')
 
-  function setStudent(data) {
-    student.value = data
-    localStorage.setItem('math-game-student', JSON.stringify(data))
+  function setUser(data) {
+    user.value = data
+    localStorage.setItem('math-game-user', JSON.stringify(data))
   }
 
   function setClassInfo(data) {
@@ -19,18 +24,22 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function loadFromStorage() {
-    const s = localStorage.getItem('math-game-student')
+    const u = localStorage.getItem('math-game-user')
     const c = localStorage.getItem('math-game-class')
-    if (s) student.value = JSON.parse(s)
+    if (u) user.value = JSON.parse(u)
     if (c) classInfo.value = JSON.parse(c)
   }
 
   function logout() {
-    student.value = null
+    user.value = null
     classInfo.value = null
-    localStorage.removeItem('math-game-student')
+    localStorage.removeItem('math-game-user')
     localStorage.removeItem('math-game-class')
   }
 
-  return { student, classInfo, isStudent, isInClass, setStudent, setClassInfo, loadFromStorage, logout }
+  return {
+    user, classInfo,
+    isLoggedIn, isStudent, isTeacher, isAdmin, isInClass, isTeacherPending,
+    setUser, setClassInfo, loadFromStorage, logout
+  }
 })

@@ -17,13 +17,17 @@
 
     <div class="bottom-actions">
       <button class="btn" @click="$router.push('/profile')">个人中心</button>
-      <template v-if="authStore.isStudent">
-        <span class="student-name">👋 {{ authStore.student.nickname }}</span>
+      <template v-if="authStore.isLoggedIn">
+        <span class="user-name">👋 {{ authStore.user.nickname }}</span>
+        <span class="role-badge" v-if="authStore.isAdmin">管理员</span>
+        <span class="role-badge teacher" v-else-if="authStore.isTeacher">教师</span>
       </template>
       <template v-else>
-        <button class="btn" @click="$router.push('/join')">登录 / 加入班级</button>
+        <button class="btn" @click="$router.push('/auth')">注册 / 登录</button>
       </template>
-      <button class="btn" @click="$router.push('/teacher')">教师登录</button>
+      <button class="btn" v-if="authStore.isAdmin" @click="$router.push('/admin')">管理后台</button>
+      <button class="btn" v-else-if="authStore.isTeacher" @click="$router.push('/teacher')">教师中心</button>
+      <button class="btn" v-else @click="$router.push('/teacher')">教师登录</button>
     </div>
   </div>
 </template>
@@ -100,5 +104,21 @@ h1 {
   color: #409eff;
   font-size: 14px;
   font-weight: bold;
+}
+.user-name {
+  padding: 10px 16px;
+  color: #409eff;
+  font-size: 14px;
+  font-weight: bold;
+}
+.role-badge {
+  padding: 4px 8px;
+  background: #ff4d4f;
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.role-badge.teacher {
+  background: #52c41a;
 }
 </style>
