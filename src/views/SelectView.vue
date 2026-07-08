@@ -26,7 +26,7 @@
         <button class="btn" @click="$router.push('/auth')">注册 / 登录</button>
       </template>
       <button class="btn" v-if="authStore.isAdmin" @click="$router.push('/admin')">管理后台</button>
-      <button class="btn" v-else-if="authStore.isTeacher" @click="$router.push('/teacher')">教师中心</button>
+      <button class="btn" v-else-if="authStore.isTeacher" @click="$router.push('/teacher')">班级管理</button>
       <button class="btn" v-else-if="!authStore.isLoggedIn" @click="$router.push('/auth')">教师登录</button>
     </div>
   </div>

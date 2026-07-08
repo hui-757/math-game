@@ -99,6 +99,16 @@ export async function findClassByCode(code) {
   return data
 }
 
+export async function fetchMyClasses(teacherId) {
+  const { data, error } = await supabase
+    .from('classes')
+    .select('*')
+    .eq('teacher_pin', teacherId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
 // ========== 教师申请接口 ==========
 
 export async function submitTeacherApplication({ studentId, school }) {
