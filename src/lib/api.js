@@ -191,6 +191,7 @@ export async function fetchClassStudents(classId) {
     .from('students')
     .select('*')
     .eq('class_id', classId)
+    .eq('role', 'student')  // 只查询学生，排除教师
 
   const studentIds = students?.map(s => s.id) || []
   const { data: progressList } = await supabase
