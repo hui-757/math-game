@@ -1,83 +1,91 @@
 <template>
   <div class="play-page">
+    <!-- 顶部栏 -->
     <div class="play-header">
-      <el-button @click="$router.back()" type="primary" plain>← 返回地图</el-button>
-      <div class="progress">{{ currentIndex + 1 }} / {{ questions.length }}</div>
-      <div class="timer">⏱ {{ formatTime }}</div>
-    </div>
-    
-    <div class="loading" v-if="loading">
-      <el-icon><Loading /></el-icon> 加载题目中...
-    </div>
-    
-    <div class="error" v-else-if="error">
-      <el-icon><Warning /></el-icon> {{ error }}
-      <el-button @click="$router.back()" style="margin-top: 16px">返回地图</el-button>
-    </div>
-    
-    <div class="question-area" v-else-if="currentQuestion">
-      <div class="question-display">
-        <div v-for="(line, li) in currentQuestion.content.lines" :key="li" class="question-line">
-          <template v-for="(part, pi) in line" :key="pi">
-            <span v-if="part.type === 'text'">{{ part.text }}</span>
-            <input
-              v-else
-              type="text"
-              inputmode="numeric"
-              class="math-blank"
-              :value="allAnswers[currentIndex]?.[part.id] || ''"
-              @input="updateAnswer(part.id, $event.target.value)"
-              maxlength="8"
-            />
-          </template>
-        </div>
+      <button class="btn-icon" @click="quit">←</button>
+      <div class="progress-bar">
+        <div class="progress-fill" :style="{width: progressPct + '%'}"></div>
       </div>
+      <div class="timer">⏱️ {{ formatTime(timeLeft) }}</div>
     </div>
-    
-    <div class="play-actions" v-if="!loading && !error && questions.length > 0">
-      <el-button type="primary" size="large" @click="submitAnswer" v-if="currentIndex < questions.length - 1">下一题</el-button>
-      <el-button type="success" size="large" @click="submitAll" v-else>提交闯关</el-button>
+
+    <!-- 加载/错误 -->
+    <div class="loading" v-if="loading">
+      <div class="spinner"></div>
+      <p>加载题目中...</p>
+    </div>
+    <div class="error" v-else-if="error">
+      <p>⚠️ {{ error }}</p>
+      <button class="btn btn-primary" @click="quit">返回</button>
+    </div>
+
+    <!-- 答题区 -->
+    <div class="question-area" v-else-if="question">
+      <!-- 题号 -->
+      <div class="q-index">第 {{ currentIndex + 1 }} / {{ questions.length }} 题</div>
+      
+      <!-- 题目文本 -->
+      <div class="q-text">{{ question.text }}</div>
+
+      <!-- 填空区 -->
+      <div class="blanks-area">
+        <template v-for="blank in question.blanks" :key="blank.id">
+          <span class="blank-label">{{ blank.label }}:</span>
+          <input
+            type="text"
+            class="blank-input"
+            :placeholder="blank.hint || '输入答案'"
+            v-model="allAnswers[currentIndex][blank.id]"
+          />
+        </template>
+      </div>
+
+      <!-- 导航按钮 -->
+      <div class="nav-buttons">
+        <button class="btn btn-nav" :disabled="currentIndex === 0" @click="prev">上一题</button>
+        <button class="btn btn-nav" :disabled="currentIndex === questions.length - 1" @click="next">下一题</button>
+      </div>
+
+      <!-- 提交按钮 -->
+      <button class="btn btn-submit" @click="submitAll" v-if="currentIndex === questions.length - 1">
+        ✅ 提交答案
+      </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '../stores/game.js'
-import { useAuthStore } from '../stores/auth.js'
 import { useProgressStore } from '../stores/progress.js'
-import { fetchQuestions, submitProgress } from '../lib/api.js'
+import { useAuthStore } from '../stores/auth.js'
+import { fetchQuestions } from '../lib/api.js'
 
 const props = defineProps(['levelId'])
+const route = useRoute()
 const router = useRouter()
 const gameStore = useGameStore()
-const authStore = useAuthStore()
 const progressStore = useProgressStore()
+const authStore = useAuthStore()
 
-const questions = ref([])
-const allAnswers = ref([])  // 每道题的答案，直接存储
-const timer = ref(0)
 const loading = ref(true)
 const error = ref('')
-let timerInterval
+const questions = ref([])
+const currentIndex = ref(0)
+const allAnswers = ref([])
+const timeLeft = ref(300)
+const timer = ref(null)
+const startTime = ref(0)
 
-const currentIndex = computed(() => gameStore.currentIndex)
-const currentQuestion = computed(() => questions.value[currentIndex.value])
-const formatTime = computed(() => {
-  const m = Math.floor(timer.value / 60)
-  const s = timer.value % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-})
+const question = computed(() => questions.value[currentIndex.value])
+const progressPct = computed(() => ((currentIndex.value + 1) / questions.value.length) * 100)
 
 onMounted(async () => {
   try {
-    authStore.loadFromStorage()
-    const [grade, semester, unit, level] = props.levelId.split('-').map(Number)
-    
-    const all = await fetchQuestions(grade, semester)
-    questions.value = all.filter(q => q.unit === unit && q.level === level)
-    allAnswers.value = new Array(questions.value.length).fill(null).map(() => ({}))
+    const [g, s, u, l] = props.levelId.split('-')
+    const all = await fetchQuestions(Number(g), Number(s))
+    questions.value = all.filter(q => q.unit === Number(u) && q.level === Number(l))
     
     if (questions.value.length === 0) {
       error.value = '该关卡暂无题目'
@@ -85,116 +93,232 @@ onMounted(async () => {
       return
     }
     
-    gameStore.initGame(questions.value, props.levelId)
-    timerInterval = setInterval(() => { timer.value++ }, 1000)
+    allAnswers.value = questions.value.map(() => ({}))
+    startTime.value = Date.now()
     loading.value = false
+    
+    timer.value = setInterval(() => {
+      timeLeft.value--
+      if (timeLeft.value <= 0) submitAll()
+    }, 1000)
   } catch (e) {
-    error.value = '加载题目失败: ' + (e.message || '未知错误')
+    error.value = '加载失败: ' + (e.message || '未知错误')
     loading.value = false
   }
 })
 
-function updateAnswer(blankId, value) {
-  if (!allAnswers.value[currentIndex.value]) {
-    allAnswers.value[currentIndex.value] = {}
-  }
-  allAnswers.value[currentIndex.value][blankId] = value
-}
+onUnmounted(() => {
+  if (timer.value) clearInterval(timer.value)
+})
 
-function submitAnswer() {
-  gameStore.nextQuestion()
+function prev() {
+  if (currentIndex.value > 0) currentIndex.value--
+}
+function next() {
+  if (currentIndex.value < questions.value.length - 1) currentIndex.value++
+}
+function quit() {
+  if (confirm('确定要退出吗？进度将不会保存。')) {
+    if (timer.value) clearInterval(timer.value)
+    router.push('/')
+  }
+}
+function formatTime(s) {
+  const m = Math.floor(s / 60)
+  const sec = s % 60
+  return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
 async function submitAll() {
-  clearInterval(timerInterval)
-  gameStore.finishGame()
+  if (timer.value) clearInterval(timer.value)
   
+  const total = questions.value.length
   let correct = 0
   const mistakes = []
-  questions.value.forEach((q, idx) => {
-    const qAnswers = allAnswers.value[idx] || {}
-    const isCorrect = checkQuestion(q, qAnswers)
-    if (isCorrect) correct++
-    else mistakes.push({ questionId: q.id, userAnswer: qAnswers, correctAnswer: getCorrectAnswers(q) })
+  
+  questions.value.forEach((q, i) => {
+    let qCorrect = true
+    q.blanks.forEach(b => {
+      const ans = (allAnswers.value[i][b.id] || '').trim()
+      const ok = ans === String(b.answer)
+      if (!ok) {
+        qCorrect = false
+        mistakes.push({
+          question: q.text,
+          blank_label: b.label,
+          user_answer: ans || '(未答)',
+          correct_answer: b.answer
+        })
+      }
+    })
+    if (qCorrect) correct++
   })
   
-  if (authStore.student) {
-    await submitProgress({
-      student_id: authStore.student.id,
-      level_id: props.levelId,
-      correct_count: correct,
-      total_count: questions.value.length,
-      time_seconds: gameStore.elapsedTime,
-      mistakes: mistakes
-    })
-  }
+  const timeSeconds = Math.round((Date.now() - startTime.value) / 1000)
   
-  // 无论是否登录，都保存到 localStorage（progressStore 会处理）
-  progressStore.addRecord({
+  // 保存进度
+  const record = {
     level_id: props.levelId,
     correct_count: correct,
-    total_count: questions.value.length,
-    time_seconds: gameStore.elapsedTime,
-    mistakes: mistakes
+    total_count: total,
+    time_seconds: timeSeconds,
+    mistakes: mistakes.length,
+    timestamp: Date.now()
+  }
+  progressStore.addRecord(record)
+  if (authStore.student) {
+    try {
+      await import('../lib/api.js').then(m => m.saveProgress(authStore.student.id, record))
+    } catch (e) { /* 静默失败 */ }
+  }
+  
+  // 存结果到store供ResultView用
+  gameStore.setResult({
+    levelId: props.levelId,
+    correct, total, time: timeSeconds, mistakes,
+    score: Math.round((correct / total) * 100)
   })
   
-  gameStore.setResult({ correct, total: questions.value.length, time: gameStore.elapsedTime, mistakes })
   router.push({ name: 'result' })
-}
-
-function extractBlanks(content) {
-  const blanks = []
-  if (!content || !content.lines) return blanks
-  content.lines.forEach(line => {
-    if (Array.isArray(line)) {
-      line.forEach(part => {
-        if (part.type === 'blank') blanks.push(part)
-      })
-    }
-  })
-  return blanks
-}
-
-function checkQuestion(q, userAnswers) {
-  const blanks = extractBlanks(q.content)
-  if (blanks.length === 0) return false
-  return blanks.every(b => {
-    const user = (userAnswers[b.id] || '').trim()
-    return user === b.answer.trim()
-  })
-}
-
-function getCorrectAnswers(q) {
-  const result = {}
-  extractBlanks(q.content).forEach(b => { result[b.id] = b.answer })
-  return result
 }
 </script>
 
 <style scoped>
-.play-page { padding: 20px; max-width: 600px; margin: 0 auto; }
-.play-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.progress { font-size: 18px; font-weight: bold; }
-.timer { font-size: 18px; color: #666; }
-.loading, .error { text-align: center; padding: 60px 20px; color: #999; }
-.error { color: #f56c6c; }
-.question-area { background: white; border-radius: 16px; padding: 40px; margin-bottom: 20px; }
-.question-line { font-size: 24px; line-height: 2; margin: 10px 0; }
-.play-actions { text-align: center; }
-.math-blank {
-  width: 3.5rem;
-  height: 2.5rem;
-  border: 2px solid #ccc;
-  border-radius: 6px;
+.play-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 16px;
+}
+.play-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.btn-icon {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: white;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.progress-bar {
+  flex: 1; height: 8px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 4px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: #52c41a;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+.timer {
+  color: white;
+  font-weight: bold;
+  font-size: 16px;
+  min-width: 60px;
   text-align: center;
-  font-size: 1.4rem;
-  font-family: 'Courier New', monospace;
+}
+
+.question-area {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+.q-index {
+  text-align: center;
+  color: #666;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+.q-text {
+  font-size: 20px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 24px;
+  text-align: center;
+}
+.blanks-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+.blank-label {
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+}
+.blank-input {
+  width: 120px;
+  padding: 12px;
+  font-size: 20px;
+  text-align: center;
+  border: 2px solid #ddd;
+  border-radius: 8px;
   outline: none;
-  transition: 0.2s;
-  margin: 0 4px;
+  transition: border-color 0.2s;
 }
-.math-blank:focus {
+.blank-input:focus {
   border-color: #409eff;
-  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
 }
+
+.nav-buttons {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-nav {
+  flex: 1;
+  background: #f0f0f0;
+  color: #333;
+}
+.btn-nav:hover:not(:disabled) {
+  background: #e0e0e0;
+}
+.btn-submit {
+  width: 100%;
+  background: #52c41a;
+  color: white;
+  font-size: 18px;
+  padding: 16px;
+}
+.btn-submit:hover {
+  background: #389e0d;
+}
+
+.loading, .error {
+  text-align: center;
+  padding: 60px 20px;
+  color: white;
+}
+.spinner {
+  width: 40px; height: 40px;
+  border: 4px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
