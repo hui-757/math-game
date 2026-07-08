@@ -2,21 +2,21 @@
   <div class="join-page">
     <div class="header">
       <button class="btn" @click="$router.push('/select')">返回</button>
-      <h2>加入班级</h2>
+      <h2>登录 / 加入班级</h2>
       <span></span>
     </div>
 
     <div class="form" v-if="!joined">
-      <p class="hint">输入班级信息，加入后闯关进度会自动同步到班级。</p>
+      <p class="hint">输入班级信息，已有记录直接登录，无记录自动创建。</p>
       <input type="text" v-model="classCode" placeholder="班级码（如 A3B7K9）" maxlength="6" />
       <input type="text" v-model="studentNumber" placeholder="学号" />
       <input type="text" v-model="studentName" placeholder="姓名" />
-      <button class="btn btn-primary" @click="join" :disabled="!canSubmit">加入班级</button>
+      <button class="btn btn-primary" @click="join" :disabled="!canSubmit">确认</button>
       <p class="error" v-if="error">{{ error }}</p>
     </div>
 
     <div class="success" v-else>
-      <p>加入成功！</p>
+      <p>登录成功！</p>
       <p>班级：{{ className }}</p>
       <button class="btn btn-primary" @click="$router.push('/select')">去闯关</button>
     </div>

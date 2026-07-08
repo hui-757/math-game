@@ -8,8 +8,9 @@
 
     <!-- 未加入班级 -->
     <div class="guest-area" v-if="!authStore.isStudent">
-      <p>你当前是访客模式，进度只保存在本机。</p>
-      <button class="btn btn-primary" @click="$router.push('/join')">加入班级</button>
+      <p>你当前是访客模式，闯关进度只保存在本机。</p>
+      <button class="btn btn-primary" @click="$router.push('/join')">登录 / 加入班级</button>
+      <p class="tip">登录后可同步进度到班级，换设备不丢失。</p>
       <div class="records" v-if="records.length > 0">
         <h3>本地记录</h3>
         <div class="record-item" v-for="(r, i) in records.slice(0, 10)" :key="i">

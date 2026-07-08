@@ -17,6 +17,7 @@
 
     <div class="bottom-actions">
       <button class="btn" @click="$router.push('/profile')">个人中心</button>
+      <button class="btn" @click="$router.push('/join')">登录 / 加入班级</button>
       <button class="btn" @click="$router.push('/teacher')">教师登录</button>
     </div>
   </div>
